@@ -20,3 +20,7 @@ prompt: "图中描绘的是什么景象?"
 # sequential_mode: true - Sequential mode: process continuously as fast as possible (waits for each to finish)
 sequential_mode: false
 process_interval: 2.0  # Used only when sequential_mode is false
+
+# Save results for visualization
+save_results: true
+save_directory: "~/vlm_results"  # Directory to save images and results

@@ -4,7 +4,9 @@ import os
 import base64
 import io
 import yaml
+import json
 from pathlib import Path
+from datetime import datetime
 from openai import OpenAI
 
 import rclpy
@@ -41,6 +43,8 @@ class SimpleVLMNode(Node):
         self.declare_parameter('prompt', config.get('prompt', '图中描绘的是什么景象?'))
         self.declare_parameter('sequential_mode', config.get('sequential_mode', False))
         self.declare_parameter('process_interval', config.get('process_interval', 2.0))
+        self.declare_parameter('save_results', config.get('save_results', False))
+        self.declare_parameter('save_directory', config.get('save_directory', '~/vlm_results'))
         
         # Get parameters (ROS params override config file)
         image_topic = self.get_parameter('image_topic').value
@@ -48,6 +52,13 @@ class SimpleVLMNode(Node):
         self.prompt = self.get_parameter('prompt').value
         self.sequential_mode = self.get_parameter('sequential_mode').value
         self.process_interval = self.get_parameter('process_interval').value
+        self.save_results = self.get_parameter('save_results').value
+        self.save_directory = os.path.expanduser(self.get_parameter('save_directory').value)
+        
+        # Create save directory if saving is enabled
+        if self.save_results:
+            os.makedirs(self.save_directory, exist_ok=True)
+            self.get_logger().info(f'Saving results to: {self.save_directory}')
         
         # Subscribe to image topic
         self.image_sub = self.create_subscription(
@@ -89,7 +100,9 @@ class SimpleVLMNode(Node):
             'model_name': 'qwen3-vl-plus',
             'prompt': '图中描绘的是什么景象?',
             'sequential_mode': False,
-            'process_interval': 2.0
+            'process_interval': 2.0,
+            'save_results': False,
+            'save_directory': '~/vlm_results'
         }
         
         # Try to load from config file
@@ -125,6 +138,37 @@ class SimpleVLMNode(Node):
         # Convert to base64
         image_base64 = base64.b64encode(buffer).decode('utf-8')
         return f"data:image/jpeg;base64,{image_base64}"
+    
+    def save_result_to_disk(self, cv_image, result):
+        """Save image and VLM result to disk for visualization"""
+        try:
+            # Generate timestamp-based filename
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]  # milliseconds
+            
+            # Save image
+            image_filename = f"image_{timestamp}.jpg"
+            image_path = os.path.join(self.save_directory, image_filename)
+            cv2.imwrite(image_path, cv_image)
+            
+            # Save result as JSON with metadata
+            result_filename = f"result_{timestamp}.json"
+            result_path = os.path.join(self.save_directory, result_filename)
+            
+            result_data = {
+                'timestamp': timestamp,
+                'image_file': image_filename,
+                'prompt': self.prompt,
+                'model': self.model_name,
+                'result': result
+            }
+            
+            with open(result_path, 'w', encoding='utf-8') as f:
+                json.dump(result_data, f, ensure_ascii=False, indent=2)
+            
+            self.get_logger().info(f'Saved to {image_filename} and {result_filename}')
+            
+        except Exception as e:
+            self.get_logger().error(f'Failed to save results: {str(e)}')
     
     def process_image(self):
         """Process the latest image with VLM"""
@@ -177,6 +221,10 @@ class SimpleVLMNode(Node):
             msg = String()
             msg.data = result
             self.result_pub.publish(msg)
+            
+            # Save results if enabled
+            if self.save_results:
+                self.save_result_to_disk(cv_image, result)
             
         except Exception as e:
             self.get_logger().error(f'Error processing image: {str(e)}')
