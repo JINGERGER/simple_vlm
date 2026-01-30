@@ -1,0 +1,22 @@
+# DashScope API Configuration
+# 获取API Key：https://help.aliyun.com/zh/model-studio/get-api-key
+
+# Your DashScope API Key
+api_key: ""
+
+# Base URL for different regions:
+# Beijing: https://dashscope.aliyuncs.com/compatible-mode/v1
+# Virginia (US): https://dashscope-us.aliyuncs.com/compatible-mode/v1
+# Singapore: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+# ROS2 Node Configuration
+image_topic: "/camera/camera/color/image_raw"
+model_name: "qwen3-vl-plus"
+prompt: "图中描绘的是什么景象?"
+
+# Processing mode:
+# sequential_mode: false (default) - Timer mode: process every N seconds
+# sequential_mode: true - Sequential mode: process continuously as fast as possible (waits for each to finish)
+sequential_mode: false
+process_interval: 2.0  # Used only when sequential_mode is false
